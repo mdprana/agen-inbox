@@ -22,14 +22,14 @@ try {
     await new Promise(r => setTimeout(r,100));
   }
   assert.ok(ready,'Own server ready');
-  for (const [path,status,method] of [['/',200,'GET'],['/api/session',200,'GET'],['/api/agents',401,'GET'],['/api/inbox?email=demo@mdprana.site',401,'GET'],['/api/status',403,'POST'],['/api/auth/connect',405,'GET'],['/api/auth/outlook/connect',404,'GET'],['/api/auth/outlook/callback',404,'GET']]) {
+  for (const [path,status,method] of [['/',200,'GET'],['/api/session',200,'GET'],['/api/agents',401,'GET'],['/api/inbox?email=demo@mdprana.site',401,'GET'],['/api/status',403,'POST'],['/api/migration',403,'POST'],['/api/migration',405,'GET'],['/api/auth/connect',405,'GET'],['/api/auth/outlook/connect',404,'GET'],['/api/auth/outlook/callback',404,'GET']]) {
     const r = await fetch(origin+path,{method}); assert.equal(r.status,status); assert.equal(r.headers.get('x-content-type-options'),'nosniff'); console.log(method,path,r.status);
   }
   const session = await (await fetch(origin+'/api/session')).json();
   assert.equal(session.configured,configured); assert.equal(session.email,null); assert.equal(session.sheetsReady,false); assert.equal(session.mailReady,false); assert.equal('outlookReady' in session,false); assert.equal(session.passwordEnabled,false);
   assert.equal((await fetch(origin+'/api/auth/login',{redirect:'manual'})).status,503);
   for (const Origin of [null,'https://evil.example']) {
-    for (const path of ['/api/auth/logout','/api/auth/connect','/api/status','/api/auth/password','/api/auth/password/enroll','/api/auth/password/invite','/api/auth/password/reset']) {
+    for (const path of ['/api/auth/logout','/api/auth/connect','/api/status','/api/migration','/api/auth/password','/api/auth/password/enroll','/api/auth/password/invite','/api/auth/password/reset']) {
       const r = await fetch(origin+path,{method:'POST',headers:{...(Origin ? {Origin} : {}),'Content-Type':'application/json'},body:'{}',redirect:'manual'});
       assert.equal(r.status,403);
     }
