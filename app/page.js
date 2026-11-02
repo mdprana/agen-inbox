@@ -57,7 +57,7 @@ export default function Home() {
     const body={email:fields.get('email'),password:fields.get('password')};
     setAuthBusy(true);setError('');setNotice('');setIssuedLink('');
     try {
-      if(action==='login'){await post('/api/auth/password',body);form.reset();await loadSession();}
+      if(action==='login'){await post('/api/auth/password',{...body,remember:form.remember.checked});form.reset();await loadSession();}
       else if(action==='issue') {
         const purpose=fields.get('purpose');
         const result=await post('/api/auth/password/'+(purpose==='invite'?'invite':'reset'),{email:body.email,...(purpose==='reset'?{action:'issue'}:{})});
@@ -152,16 +152,20 @@ export default function Home() {
     <section className="loginform">
       <div className="loginstack">
         <h1>Masuk ke Agen Inbox</h1>
-        <p className="muted">Khusus akun tim yang diizinkan.</p>
+        <p className="muted">Khusus akun tim yang diizinkan. <a href="mailto:madepranajaya01@gmail.com?subject=Akses%20Agen%20Inbox">Minta akses</a></p>
         {alerts}
         {authParam==='failed' && <p className="alert" role="alert">Login gagal. Pastikan akun benar dan semua izin Google disetujui.</p>}
-        {tokenForm || <form className="loginfields" onSubmit={e=>credential(e,'login')}><fieldset className="plain" disabled={!session.passwordEnabled || authBusy}>{passwordFields(false)}<button className="primary block" type="submit">Masuk</button></fieldset>{!session.passwordEnabled && <p className="muted">Login kata sandi belum aktif.</p>}</form>}
-        <div className="divider"><span>atau</span></div>
-        <form method="get" action="/api/auth/login" className="loginfields">
-          <label htmlFor="login-hint">Email Google <span className="req" aria-hidden="true">*</span></label>
-          <input id="login-hint" type="email" name="login_hint" autoComplete="email" placeholder="nama@gmail.com" required/>
-          <button className="primary block" type="submit" disabled={!session.configured || !session.storageConfigured}><span className="gcircle"><img src="/google.png" width="20" height="20" alt="" aria-hidden="true"/></span>Lanjutkan dengan Google</button>
-        </form>
+        {tokenForm || <form className="loginfields" onSubmit={e=>credential(e,'login')}>
+          <div className="fieldgrid">
+            <label>Email <span className="req" aria-hidden="true">*</span><input name="email" type="email" autoComplete="username" required maxLength={254} disabled={!session.passwordEnabled || authBusy}/></label>
+            <label>Kata sandi <span className="req" aria-hidden="true">*</span><input name="password" type="password" autoComplete="current-password" required minLength={15} disabled={!session.passwordEnabled || authBusy}/></label>
+          </div>
+          <div className="divider"><span>atau</span></div>
+          {session.configured && session.storageConfigured?<a className="button block" href="/api/auth/login"><img src="/google.png" width="20" height="20" alt="" aria-hidden="true"/>Lanjutkan dengan Google</a>:<button type="button" className="button block" disabled><img src="/google.png" width="20" height="20" alt="" aria-hidden="true"/>Lanjutkan dengan Google</button>}
+          <div className="loginrow"><label className="check"><input type="checkbox" name="remember" defaultChecked disabled={!session.passwordEnabled || authBusy}/> Ingat saya</label><a href="mailto:madepranajaya01@gmail.com?subject=Reset%20kata%20sandi%20Agen%20Inbox">Lupa kata sandi?</a></div>
+          <button className="primary block" type="submit" disabled={!session.passwordEnabled || authBusy}>Masuk</button>
+          {!session.passwordEnabled && <p className="muted">Login kata sandi belum aktif.</p>}
+        </form>}
       </div>
     </section>
     <aside className="loginpanel">

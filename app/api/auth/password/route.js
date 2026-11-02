@@ -5,7 +5,7 @@ export async function POST(request) {
   try {
     checkOrigin(request); const body = await jsonBody(request); requirePassword();
     const id = await passwordStore().login(body.email, body.password, trustedIP(request));
-    await setSessionId(id);
+    await setSessionId(id, {persistent:body.remember !== false});
     return Response.json({ok:true}, {headers:{'Cache-Control':'no-store'}});
   } catch(e) { return errorResponse(e); }
 }
