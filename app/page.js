@@ -5,7 +5,7 @@ function Icon({name}) {
   if(name==='refresh') return <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3a9 9 0 0 1 8.5 12h-3.3A6 6 0 0 0 7.8 7.8L10 10H3V3l2.6 2.6A9 9 0 0 1 12 3Z"/><path d="M12 21a9 9 0 0 1-8.5-12h3.3a6 6 0 0 0 9.4 7.2L14 14h7v7l-2.6-2.6A9 9 0 0 1 12 21Z"/></svg>;
   if(name==='block') return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m5.6 18.4 12.8-12.8"/></svg>;
   if(name==='sparkle') return <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c.7 6.4 4.6 10.3 12 12-7.4 1.7-11.3 5.6-12 12-.7-6.4-4.6-10.3-12-12C7.4 10.3 11.3 6.4 12 0Z"/></svg>;
-  const paths={inbox:'M4 4h16v16H4z M4 13h5l2 3h2l2-3h5',search:'M21 21l-5-5 M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0',copy:'M9 9h11v11H9z M15 5V3H3v12h2',arrow:'M7 17 17 7 M7 7h10v10',back:'M19 12H5 M11 6l-6 6 6 6',shield:'M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7z M8 12l3 3 5-6',check:'M5 12l4 4L19 6',funnel:'M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z',sheet:'M5 3h14v18H5z M5 9h14 M5 15h14 M12 9v12',exit:'M9 4H4v16h5 M10 12h11 M17 8l4 4-4 4',clock:'M12 7v5l3 2 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0',building:'M4 21V5l8-3 8 3v16 M9 21v-5h6v5 M9 9h.01 M15 9h.01',layers:'M12 3 2 8l10 5 10-5z M2 16l10 5 10-5'};
+  const paths={inbox:'M4 4h16v16H4z M4 13h5l2 3h2l2-3h5',search:'M21 21l-5-5 M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0',copy:'M9 9h11v11H9z M15 5V3H3v12h2',arrow:'M7 17 17 7 M7 7h10v10',back:'M19 12H5 M11 6l-6 6 6 6',shield:'M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7z M8 12l3 3 5-6',check:'M5 12l4 4L19 6',funnel:'M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z',sheet:'M5 3h14v18H5z M5 9h14 M5 15h14 M12 9v12',exit:'M9 4H4v16h5 M10 12h11 M17 8l4 4-4 4',clock:'M12 7v5l3 2 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0',building:'M4 21V5l8-3 8 3v16 M9 21v-5h6v5 M9 9h.01 M15 9h.01',layers:'M12 3 2 8l10 5 10-5z M2 16l10 5 10-5',settings:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6 M12 2v3 M12 19v3 M4.9 4.9 7 7 M17 17l2.1 2.1 M2 12h3 M19 12h3 M4.9 19.1 7 17 M17 7l2.1-2.1'};
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name] || paths.inbox}/></svg>;
 }
 // Same glyph as app/icon.svg, without the black tile; colour follows currentColor.
@@ -28,7 +28,7 @@ export default function Home() {
   const [messages,setMessages]=useState([]), [limited,setLimited]=useState(false), [error,setError]=useState(''), [notice,setNotice]=useState('');
   const [loading,setLoading]=useState(false), [mailLoading,setMailLoading]=useState(false), [saving,setSaving]=useState(false), [choice,setChoice]=useState('');
   const [mailVersion,setMailVersion]=useState(0), [filter,setFilter]=useState('all'), [mobileDetail,setMobileDetail]=useState(false), [copyState,setCopyState]=useState(''), [sessionFailed,setSessionFailed]=useState(false), [mailFailed,setMailFailed]=useState(false);
-  const [loc,setLoc]=useState(noLoc), [panelOpen,setPanelOpen]=useState(false);
+  const [loc,setLoc]=useState(noLoc), [panelOpen,setPanelOpen]=useState(false), [view,setView]=useState('inbox');
   const [authBusy,setAuthBusy]=useState(false), [tokenPurpose,setTokenPurpose]=useState(''), [issuedLink,setIssuedLink]=useState(''), [mailError,setMailError]=useState('');
   const credentialToken=useRef('');
   useEffect(()=>{
@@ -130,15 +130,17 @@ export default function Home() {
   const sheets=[...new Set(agents.map(a=>a.sheet).filter(Boolean))].sort((x,y)=>x.localeCompare(y,'id'));
   const authParam=typeof window!=='undefined'?new URLSearchParams(window.location.search).get('auth'):null;
   const alerts=<>{error && <div className="alert" role="alert"><strong>Permintaan belum selesai.</strong> {error}</div>}<div role="status" aria-live="polite" className={notice?'notice':'sr-only'}>{notice}</div></>;
-  const pickFilter=value=>{setFilter(value);setMobileDetail(false);};
+  const pickFilter=value=>{setFilter(value);setMobileDetail(false);setView('inbox');};
   // Shared by desktop sidebar and mobile pill row; only one is displayed at a time.
   const menu=<>
     <p className="menulabel">MENU UTAMA</p>
-    <div className="menugroup"><a className="menuitem active" href="#content" aria-current="page"><Icon name="inbox"/><span>Inbox agen</span></a>
+    <div className="menugroup"><a className={'menuitem'+(view==='inbox'?' active':'')} href="#content" aria-current={view==='inbox'?'page':undefined} onClick={()=>setView('inbox')}><Icon name="inbox"/><span>Inbox agen</span></a>
     {filters.map(([value,label])=><button key={value} className="menuitem" onClick={()=>pickFilter(value)} aria-pressed={filter===value} disabled={saving}><Icon name={filterIcons[value]}/><span>{label}</span><span className="menucount">{loading?'…':counts[value]}</span></button>)}</div>
     <p className="menulabel">KANTOR CABANG</p>
-    <div className="menugroup"><button className="menuitem" onClick={()=>setLocField('sheet','')} aria-pressed={!loc.sheet} disabled={saving}><Icon name="layers"/><span>Semua KC</span></button>
-    {sheets.map(s=><button key={s} className="menuitem" onClick={()=>setLocField('sheet',s)} aria-pressed={loc.sheet===s} disabled={saving}><Icon name="building"/><span className="menutext">{s}</span></button>)}</div>
+    <div className="menugroup"><button className="menuitem" onClick={()=>{setLocField('sheet','');setView('inbox');}} aria-pressed={!loc.sheet} disabled={saving}><Icon name="layers"/><span>Semua KC</span></button>
+    {sheets.map(s=><button key={s} className="menuitem" onClick={()=>{setLocField('sheet',s);setView('inbox');}} aria-pressed={loc.sheet===s} disabled={saving}><Icon name="building"/><span className="menutext">{s}</span></button>)}</div>
+    <p className="menulabel">AKUN</p>
+    <div className="menugroup"><button className="menuitem" onClick={()=>{setView('settings');setMobileDetail(false);}} aria-pressed={view==='settings'} disabled={saving}><Icon name="settings"/><span>Pengaturan</span></button></div>
   </>;
   const skip=<a href="#content" className="skip">Lewati ke konten</a>;
   const passwordFields=rule=><><label>Email tim<input name="email" type="email" autoComplete="username" required maxLength={254}/></label><label>Kata sandi<input name="password" type="password" autoComplete={tokenPurpose?'new-password':'current-password'} required minLength={15} aria-describedby={rule?'password-rule':undefined}/></label>{rule && <p id="password-rule">Minimal 15 karakter, maksimal 128 byte UTF-8. Spasi dan tempel diperbolehkan.</p>}</>;
@@ -197,9 +199,9 @@ export default function Home() {
       </header>
       <nav className="mobilemenu" aria-label="Menu utama">{menu}</nav>
       <main id="content" className="content">
+        {view==='settings'?<><div className="pagetitle"><h1>Pengaturan</h1><p>Koneksi sumber data dan akun tim.</p></div>{alerts}{connections}{passwordTools}<button onClick={logout}>Keluar</button></>:<>
         <div className="pagetitle"><h1>Inbox agen</h1><p>Email alias dan hasil peninjauan, langsung dari Google Sheets.</p></div>
         {alerts}
-        {connections}{passwordTools}<button onClick={logout}>Keluar</button>
         <section className="stats" aria-label="Ringkasan status agen">{filters.map(([value,label])=><button key={value} onClick={()=>pickFilter(value)} className={'stat '+value} aria-pressed={filter===value} disabled={saving}><span className="stattop"><span className="staticon"><Icon name={filterIcons[value]}/></span>{value!=='all' && <span className="statshare" title="dari total">{counts.all?Math.round(counts[value]/counts.all*100):0}%<span className="sr-only"> dari total</span></span>}</span><small>{label}</small><strong>{loading?'…':counts[value]}</strong></button>)}</section>
         <div className={'workspace '+(mobileDetail?'show-detail':'show-list')}>
           <aside className="agents" aria-label="Daftar agen">
@@ -223,6 +225,7 @@ export default function Home() {
             </>}
           </section>
         </div>
+        </>}
         {footer}
       </main>
     </div>

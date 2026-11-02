@@ -245,16 +245,22 @@ kbd { font: 600 12px var(--ui); color: var(--muted); background: #fff; border: 1
 .statusintro strong { color: #000; }
 fieldset { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-width: 0; }
 legend { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--label); margin-bottom: 10px; padding: 0; }
-.option { display: flex; align-items: center; gap: 12px; padding: 18px 20px; border-radius: 24px; border: 1px solid var(--line2); background: #fff; cursor: pointer; min-height: 44px; transition: border-color var(--ease), background var(--ease); }
+.option { display: flex; align-items: center; gap: 12px; padding: 18px 20px; border-radius: 24px; border: 1px solid var(--line2); background: #fff; cursor: pointer; min-height: 44px; transition: border-color var(--ease), background var(--ease), box-shadow var(--ease), color var(--ease), transform var(--ease); }
 .option:hover { background: var(--fill2); }
 .option:has(input:checked) { border-color: #000; box-shadow: inset 0 0 0 1px #000; }
+.option.success:hover, .option.success:has(input:checked) { border-color: #10B981; background: rgba(16,185,129,.08); box-shadow: inset 0 0 0 1px #10B981; }
+.option.failed:hover, .option.failed:has(input:checked) { border-color: #EF4444; background: rgba(239,68,68,.08); box-shadow: inset 0 0 0 1px #EF4444; }
 .option:has(input:focus-visible) { outline: 2px solid #000; outline-offset: 2px; }
 .option input { width: 20px; height: 20px; accent-color: #000; margin: 0; flex: none; }
+.option.success input:checked { accent-color: #047857; }
+.option.failed input:checked { accent-color: #B91C1C; }
 .option span { display: flex; flex-direction: column; font-weight: 700; }
 .option small { font-weight: 400; font-size: 13px; color: var(--muted); }
 .option.success span::first-line { color: #047857; }
 .option.failed span::first-line { color: #B91C1C; }
 fieldset:disabled .option { opacity: .5; cursor: not-allowed; }
+fieldset:disabled .option:hover { background: #fff; border-color: var(--line2); box-shadow: none; transform: none; }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) { fieldset:not(:disabled) .option:hover { transform: translateY(-1px); } }
 .savebar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .savebar p { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); flex: 1; min-width: 220px; }
 
