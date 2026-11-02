@@ -131,8 +131,9 @@ input, select { font: inherit; color: inherit; }
 button.ownerbutton { border: 0; cursor: pointer; min-height: 44px; }
 button.ownerbutton:hover:not(:disabled) { background: #fff; }
 .ownerbutton.ghost, button.ownerbutton.ghost:hover:not(:disabled) { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.5); box-shadow: none; }
-.ownerrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-.ownerrow .ownerbutton { margin-top: 0; }
+.ownerrow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.ownerrow .ownerbutton { margin-top: 0; width: 100%; justify-content: center; padding: 0 12px; }
+.ownerrow .ownerbutton:only-child { grid-column: 1 / -1; }
 .ownercard.inline { margin: 16px 0; align-self: stretch; }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
 .dot.ok { background: #34D399; }
