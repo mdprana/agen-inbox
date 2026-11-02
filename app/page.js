@@ -29,7 +29,7 @@ export default function Home() {
   const [loading,setLoading]=useState(false), [mailLoading,setMailLoading]=useState(false), [saving,setSaving]=useState(false), [choice,setChoice]=useState('');
   const [mailVersion,setMailVersion]=useState(0), [filter,setFilter]=useState('all'), [mobileDetail,setMobileDetail]=useState(false), [copyState,setCopyState]=useState(''), [sessionFailed,setSessionFailed]=useState(false), [mailFailed,setMailFailed]=useState(false);
   const [loc,setLoc]=useState(noLoc), [panelOpen,setPanelOpen]=useState(false), [view,setView]=useState('inbox');
-  const [authBusy,setAuthBusy]=useState(false), [tokenPurpose,setTokenPurpose]=useState(''), [issuedLink,setIssuedLink]=useState(''), [mailError,setMailError]=useState('');
+  const [authBusy,setAuthBusy]=useState(false), [tokenPurpose,setTokenPurpose]=useState(''), [issuedLink,setIssuedLink]=useState(''), [mailError,setMailError]=useState(''), [mac,setMac]=useState(true);
   const credentialToken=useRef('');
   useEffect(()=>{
     const fragment=window.location.hash;
@@ -79,6 +79,7 @@ export default function Home() {
     document.addEventListener('pointerdown',outside);
     return ()=>document.removeEventListener('pointerdown',outside);
   },[panelOpen]);
+  useEffect(()=>{setMac(/Mac|iPhone|iPad/.test(navigator.userAgentData?.platform||navigator.platform||navigator.userAgent));},[]);
   useEffect(()=>{
     const key=e=>{if((e.metaKey || e.ctrlKey) && e.key.toLowerCase()==='k' && searchInput.current){e.preventDefault();searchInput.current.focus();}};
     document.addEventListener('keydown',key);
@@ -121,6 +122,16 @@ export default function Home() {
     credentialToken.current='';setTokenPurpose('');setIssuedLink('');
     try {await api('/api/auth/logout',{method:'POST'});setAgents([]);setMessages([]);setSelected(null);setSession(s=>({...s,email:null}));setError('');setNotice('');setCopyState('');}catch(e){setError(e.message);}
   }
+  function pick(a) {setSelected(a);setMobileDetail(true);}
+  function jump(e) {
+    if(e.key==='Escape'){e.currentTarget.blur();return;}
+    if(e.key!=='Enter' || e.nativeEvent.isComposing)return;
+    e.preventDefault();
+    const hit=filterAgents(agents,query,'all',noLoc)[0];
+    if(!hit){setNotice('Tidak ada agen yang cocok.');return;}
+    setView('inbox');setLoc({...noLoc,sheet:hit.sheet||''});setFilter(statusGroup(hit.status));pick(hit);
+    requestAnimationFrame(()=>document.querySelector('[data-agent="'+CSS.escape(hit.email+'|'+hit.sheet)+'"]')?.scrollIntoView({block:'nearest'}));
+  }
   async function copyAlias() {
     try {await navigator.clipboard.writeText(selected.email);setCopyState('Alias disalin.');}
     catch {setCopyState('Tidak dapat menyalin. Pilih teks alias lalu salin secara manual.');}
@@ -145,8 +156,7 @@ export default function Home() {
   const skip=<a href="#content" className="skip">Lewati ke konten</a>;
   const passwordFields=rule=><><label>Email tim<input name="email" type="email" autoComplete="username" required maxLength={254}/></label><label>Kata sandi<input name="password" type="password" autoComplete={tokenPurpose?'new-password':'current-password'} required minLength={15} aria-describedby={rule?'password-rule':undefined}/></label>{rule && <p id="password-rule">Minimal 15 karakter, maksimal 128 byte UTF-8. Spasi dan tempel diperbolehkan.</p>}</>;
   const tokenForm=tokenPurpose && <form className="loginfields" onSubmit={e=>credential(e,'consume')}><h2>{tokenPurpose==='invite'?'Terima undangan':'Reset kata sandi'}</h2><p>Token hanya dari fragmen undangan privat, berlaku 30 menit dan sekali pakai. Tidak ada pendaftaran publik.</p>{passwordFields(true)}<button disabled={!session?.passwordEnabled || authBusy}>Simpan kata sandi</button><button type="button" onClick={()=>{credentialToken.current='';setTokenPurpose('');}}>Batalkan dan hapus token</button></form>;
-  const passwordTools=<details className="passwordtools"><summary>Kata sandi tim</summary>{!session?.passwordEnabled?<p>Login kata sandi belum tersedia. Gunakan akun Google tim.</p>:<><p>Kata sandi hanya untuk identitas. Tidak memberi akses Sheets/email.</p>{session.email && <form className="loginfields" onSubmit={e=>credential(e,'google')}><label>Kata sandi baru<input name="password" type="password" autoComplete="new-password" required minLength={15}/></label><p>Enrollment hanya setelah login Google dalam 10 menit, bila belum punya kata sandi. Minimal 15 karakter, maksimal 128 byte UTF-8. Semua sesi lama dicabut.</p><button disabled={authBusy}>Daftarkan kata sandi sendiri</button></form>}{session.owner && <form className="loginfields" onSubmit={e=>credential(e,'issue')}><label>Email anggota<input name="email" type="email" autoComplete="off" required maxLength={254}/></label><label>Tujuan<select name="purpose"><option value="invite">Undangan</option><option value="reset">Reset</option></select></label><p>Memerlukan autentikasi pemilik dalam 10 menit dan rencana pengiriman privat yang disetujui. Tidak ada pengiriman email atau pemulihan pemilik.</p><button disabled={authBusy}>Terbitkan tautan privat</button></form>}{issuedLink && <div role="status"><label>Tautan rahasia — salin manual, jangan kirim tanpa persetujuan<input className="issuedlink" readOnly value={issuedLink} autoComplete="off" onFocus={e=>e.target.select()}/></label><button onClick={()=>setIssuedLink('')}>Hapus tautan dari layar</button></div>}</>}{tokenForm}</details>;
-  const connections=session && <section className="connections" aria-label="Koneksi sumber data"><div><strong>Sheets: {session.sheetsReady?'siap':'belum siap'}</strong><p>{session.sheets?.error}</p>{session.owner && <button onClick={()=>connect('Sheets')} disabled={authBusy}>Hubungkan ulang Sheets</button>}</div><div><strong>Email (Cloudflare): {session.mailReady?'siap':'belum siap'}</strong><p>{session.mail?.error}</p></div>{!session.owner && <p>Hubungi pemilik madepranajaya01@gmail.com.</p>}{authParam==='connect_failed' && <p role="alert">Koneksi gagal. Periksa akun, izin dan konfigurasi penyedia.</p>}<button onClick={loadSession} disabled={authBusy}>Periksa koneksi</button></section>;
+  const connectionCard=extra=><div className={'ownercard'+(extra||'')}><span className="ownersparkle"><Icon name="sparkle"/></span><strong>Koneksi</strong><p><span className={'dot '+(session.sheetsReady?'ok':'off')} aria-hidden="true"/>Sheets {session.sheetsReady?'siap':'belum siap'}</p><p><span className={'dot '+(session.mailReady?'ok':'off')} aria-hidden="true"/>Email {session.mailReady?'siap':'belum siap'}</p>{authParam==='connect_failed' && <p role="alert">Koneksi gagal. Coba lagi.</p>}{!session.owner && <p>Hubungi pemilik bila belum siap.</p>}<div className="ownerrow">{session.owner && <button className="ownerbutton" onClick={()=>connect('Sheets')} disabled={authBusy}>Hubungkan ulang</button>}<button className="ownerbutton ghost" onClick={loadSession} disabled={authBusy}>Periksa</button></div></div>;
   const card=children=><>{skip}<main id="content" className="centered"><section className="welcome"><div className="welcomeicon"><img src="/icon.svg" alt="" width="48" height="48"/></div>{alerts}{children}</section>{footer}</main></>;
 
   if(!session) return card(<><p className="eyebrow">AKSES PRIBADI</p><h2>{sessionFailed?'Sesi belum dapat dimuat.':'Menyiapkan ruang kerja…'}</h2><p>{sessionFailed?'Periksa koneksi, lalu coba kembali.':'Memeriksa sesi sebelum menampilkan data agen.'}</p>{sessionFailed?<button onClick={loadSession}>Coba lagi</button>:<p role="status">Memeriksa sesi…</p>}</>);
@@ -179,19 +189,18 @@ export default function Home() {
       </div>
     </aside>
   </main></>;
-  if(!session.sheetsReady) return card(<><h2>Koneksi Sheets pemilik belum siap.</h2><p>Login tidak memberi izin sumber data. Sheets dan sumber email diperiksa terpisah.</p>{connections}{passwordTools}<button onClick={logout}>Keluar</button></>);
+  if(!session.sheetsReady) return card(<><h2>Koneksi Sheets pemilik belum siap.</h2><p>Login tidak memberi izin sumber data. Sheets dan sumber email diperiksa terpisah.</p>{connectionCard(' inline')}<button onClick={logout}>Keluar</button></>);
 
   const initials=(session.email.split('@')[0].replace(/[^a-z0-9]/gi,'').slice(0,2) || '?').toUpperCase();
   return <>{skip}<div className="app">
     <aside className="sidebar" aria-label="Navigasi">
       <a className="brand" href="/" aria-label="Agen Inbox, beranda"><img src="/icon.svg" alt="" width="32" height="32"/><span>Agen Inbox</span></a>
-      <nav className="menu" aria-label="Menu utama">{menu}</nav>
-
+      <nav className="menu" aria-label="Menu utama">{menu}</nav>{connectionCard()}
       <div className="profile"><span className="avatar" aria-hidden="true">{initials}</span><span className="profiletext"><span className="profileemail">{session.email}</span><small>{session.mailReady?'Sheets dan email siap.':'Sheets siap. Email belum siap.'}</small></span><button className="iconbutton" onClick={logout} disabled={saving} aria-label="Keluar"><Icon name="exit"/></button></div>
     </aside>
     <div className="appmain">
       <header className="apphead">
-        <label className="search" htmlFor="agent-search"><span className="sr-only">Cari agen</span><Icon name="search"/><input ref={searchInput} id="agent-search" name="agent-search" type="search" autoComplete="off" placeholder="Nama, email, atau lembar" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Escape')e.currentTarget.blur();}}/><kbd aria-hidden="true">⌘K</kbd></label>
+        <label className="search" htmlFor="agent-search"><span className="sr-only">Cari agen</span><Icon name="search"/><input ref={searchInput} id="agent-search" name="agent-search" type="search" autoComplete="off" placeholder="Nama, email, atau lembar" value={query} onChange={e=>{setQuery(e.target.value);setView('inbox');}} onKeyDown={jump}/><kbd aria-hidden="true">{mac?'⌘K':'Ctrl K'}</kbd></label>
         <div className="headactions">
           <div className="filterwrap" ref={filterWrap} onKeyDown={e=>{if(e.key==='Escape' && panelOpen){e.stopPropagation();setPanelOpen(false);filterButton.current?.focus();}}}><button ref={filterButton} className="filterbutton" onClick={()=>setPanelOpen(o=>!o)} aria-expanded={panelOpen} aria-controls="filter-panel" disabled={saving}><Icon name="funnel"/>Filter{activeLoc>0 && <span className="filtercount"><span className="sr-only">, </span>{activeLoc}<span className="sr-only"> aktif</span></span>}</button>{panelOpen && <div id="filter-panel" ref={filterPanel} className="filterpanel" role="dialog" aria-label="Filter lokasi agen">{locFields.map(([key,label])=><label key={key}>{label}<select value={loc[key]} onChange={e=>setLocField(key,e.target.value)}><option value="">Semua</option>{options[key].map(v=><option key={v} value={v}>{v}</option>)}</select></label>)}<button type="button" onClick={()=>setLoc(noLoc)} disabled={!activeLoc}>Reset filter</button></div>}</div>
           <button className="primary" onClick={loadAgents} disabled={loading || saving}><Icon name="refresh"/>Muat ulang data</button>
@@ -199,14 +208,18 @@ export default function Home() {
       </header>
       <nav className="mobilemenu" aria-label="Menu utama">{menu}</nav>
       <main id="content" className="content">
-        {view==='settings'?<><div className="pagetitle"><h1>Pengaturan</h1><p>Koneksi sumber data dan akun tim.</p></div>{alerts}{connections}{passwordTools}<button onClick={logout}>Keluar</button></>:<>
+        {view==='settings'?<><div className="pagetitle"><h1>Pengaturan</h1><p>Akun dan akses tim.</p></div>{alerts}{connectionCard(' mobileonly')}
+        <section className="setting"><div><h2>Akun</h2><p>{session.email}{session.owner?' · Pemilik':' · Anggota tim'}</p></div><button onClick={logout}>Keluar</button></section>
+        {session.passwordEnabled && <section className="setting"><div><h2>Kata sandi</h2><p>Atur kata sandi untuk akun ini. Hanya bisa dalam 10 menit setelah masuk dengan Google.</p></div><form onSubmit={e=>credential(e,'google')}><label>Kata sandi baru<input name="password" type="password" autoComplete="new-password" required minLength={15} aria-describedby="password-hint"/></label><small id="password-hint">Minimal 15 karakter.</small><button disabled={authBusy}>Simpan</button></form></section>}
+        {session.owner && session.passwordEnabled && <section className="setting"><div><h2>Undang anggota</h2><p>Buat tautan sekali pakai (30 menit) untuk mengatur atau mereset kata sandi anggota.</p></div><div><form onSubmit={e=>credential(e,'issue')}><label>Email anggota<input name="email" type="email" autoComplete="off" required maxLength={254}/></label><label>Tujuan<select name="purpose"><option value="invite">Undangan</option><option value="reset">Reset</option></select></label><button disabled={authBusy}>Buat tautan</button></form>{issuedLink && <div role="status" className="issued"><label>Tautan sekali pakai — kirim langsung ke anggota<input className="issuedlink" readOnly value={issuedLink} autoComplete="off" onFocus={e=>e.target.select()}/></label><div className="ownerrow"><button onClick={()=>navigator.clipboard.writeText(issuedLink).then(()=>setNotice('Tautan disalin.'),()=>setNotice('Tidak dapat menyalin. Salin manual.'))}>Salin</button><button onClick={()=>setIssuedLink('')}>Hapus</button></div></div>}</div></section>}
+      </>:<>
         <div className="pagetitle"><h1>Inbox agen</h1><p>Email alias dan hasil peninjauan, langsung dari Google Sheets.</p></div>
         {alerts}
         <section className="stats" aria-label="Ringkasan status agen">{filters.map(([value,label])=><button key={value} onClick={()=>pickFilter(value)} className={'stat '+value} aria-pressed={filter===value} disabled={saving}><span className="stattop"><span className="staticon"><Icon name={filterIcons[value]}/></span>{value!=='all' && <span className="statshare" title="dari total">{counts.all?Math.round(counts[value]/counts.all*100):0}%<span className="sr-only"> dari total</span></span>}</span><small>{label}</small><strong>{loading?'…':counts[value]}</strong></button>)}</section>
         <div className={'workspace '+(mobileDetail?'show-detail':'show-list')}>
           <aside className="agents" aria-label="Daftar agen">
             <div className="panelhead"><h2>Daftar agen</h2><p className="resultcount" role="status">{loading?'Memuat spreadsheet…':`${filtered.length} dari ${agents.length} agen ditampilkan`}</p></div>
-            <div className="agentlist" aria-busy={loading}>{loading && <div className="loadingstate" role="status"><Icon name="sheet"/><strong>Memuat daftar agen…</strong><p>Mengambil baris terbaru dari Google Sheets.</p></div>}{!loading && !filtered.length && <div className="empty"><Icon name="search"/><h3>{agents.length?'Belum ada yang cocok.':'Daftar agen masih kosong.'}</h3><p>{agents.length?'Coba kata lain atau tampilkan semua status.':'Periksa header Email dan Nama Agen di spreadsheet.'}</p>{agents.length>0 && <button onClick={()=>{setQuery('');setFilter('all');setLoc(noLoc);}}>Reset pencarian</button>}</div>}{filtered.map((a,i)=><button className={'agent '+(selected?.email===a.email && selected?.sheet===a.sheet?'selected':'')} key={a.email+a.sheet+i} onClick={()=>{setSelected(a);setMobileDetail(true);}} disabled={saving} aria-pressed={selected?.email===a.email && selected?.sheet===a.sheet}><span className="agentavatar" aria-hidden="true">{(a.name || a.email).slice(0,2).toUpperCase()}</span><span className="agentinfo"><span className="agentname">{a.name || 'Tanpa nama'}</span><span className="email">{a.email}</span><span className="agentmeta"><span className="sheetname">{a.sheet}</span><Badge status={a.status}/></span>{a.duplicate && <span className="duplicate">Email duplikat · hanya baca</span>}</span></button>)}</div>
+            <div className="agentlist" aria-busy={loading}>{loading && <div className="loadingstate" role="status"><Icon name="sheet"/><strong>Memuat daftar agen…</strong><p>Mengambil baris terbaru dari Google Sheets.</p></div>}{!loading && !filtered.length && <div className="empty"><Icon name="search"/><h3>{agents.length?'Belum ada yang cocok.':'Daftar agen masih kosong.'}</h3><p>{agents.length?'Coba kata lain atau tampilkan semua status.':'Periksa header Email dan Nama Agen di spreadsheet.'}</p>{agents.length>0 && <button onClick={()=>{setQuery('');setFilter('all');setLoc(noLoc);}}>Reset pencarian</button>}</div>}{filtered.map((a,i)=><button className={'agent '+(selected?.email===a.email && selected?.sheet===a.sheet?'selected':'')} key={a.email+a.sheet+i} data-agent={a.email+'|'+a.sheet} onClick={()=>pick(a)} disabled={saving} aria-pressed={selected?.email===a.email && selected?.sheet===a.sheet}><span className="agentavatar" aria-hidden="true">{(a.name || a.email).slice(0,2).toUpperCase()}</span><span className="agentinfo"><span className="agentname">{a.name || 'Tanpa nama'}</span><span className="email">{a.email}</span><span className="agentmeta"><span className="sheetname">{a.sheet}</span><Badge status={a.status}/></span>{a.duplicate && <span className="duplicate">Email duplikat · hanya baca</span>}</span></button>)}</div>
           </aside>
           <section className="detail" aria-label="Detail inbox">
             <button className="mobileback" disabled={saving} onClick={()=>{setMobileDetail(false);requestAnimationFrame(()=>searchInput.current?.focus());}}><Icon name="back"/>Kembali ke daftar agen</button>
