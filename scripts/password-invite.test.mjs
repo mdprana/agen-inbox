@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { invite } from './password-invite.mjs';
 import { passwordStore } from '../lib/password-auth.js';
 import { PASSWORD_UPDATE } from '../lib/redis.js';
-import { TEAM } from '../lib/team-auth.js';
 import { OWNER } from '../lib/helpers.js';
-const env = {APP_URL:'http://localhost:3109', PASSWORD_LOGIN_ENABLED:'true', UPSTASH_REDIS_REST_URL:'https://redis.example', UPSTASH_REDIS_REST_TOKEN:'synthetic-only'};
+const member = 'member@example.test';
+const env = {TEAM_EMAILS:`${OWNER},${member}`, APP_URL:'http://localhost:3109', PASSWORD_LOGIN_ENABLED:'true', UPSTASH_REDIS_REST_URL:'https://redis.example', UPSTASH_REDIS_REST_TOKEN:'synthetic-only'};
 test('invite script writes a token record accepted by consume(); state checks exit cleanly', async () => {
   const data = new Map();
   const fetcher = async (url, options) => {
@@ -16,14 +16,35 @@ test('invite script writes a token record accepted by consume(); state checks ex
     else result = 1;
     return Response.json({result});
   };
-  const member = TEAM[0], store = passwordStore(env, fetcher);
+  const store = passwordStore(env, fetcher);
   await assert.rejects(() => invite('outsider@gmail.com', 'invite', env, fetcher), /daftar tim/);
   await assert.rejects(() => invite(member, 'reset', env, fetcher), /gunakan invite/);
+  const previous = process.env.TEAM_EMAILS;
+  try {
+    process.env.TEAM_EMAILS = OWNER;
+    assert.match(await invite(` ${member.toUpperCase()} `, 'invite', env, fetcher), /#invite=/);
+    const size = data.size;
+    process.env.TEAM_EMAILS = env.TEAM_EMAILS;
+    for (const TEAM_EMAILS of [OWNER, undefined, member, `${OWNER},bad`]) {
+      await assert.rejects(() => invite(member, 'invite', {...env,TEAM_EMAILS}, fetcher), /daftar tim/);
+      await assert.rejects(() => invite(OWNER, 'invite', {...env,TEAM_EMAILS:undefined}, fetcher), /daftar tim/);
+      assert.equal(data.size,size);
+    }
+  } finally {
+    if (previous === undefined) delete process.env.TEAM_EMAILS; else process.env.TEAM_EMAILS = previous;
+  }
   const link = await invite(member, 'invite', env, fetcher), [, purpose, token] = /^http:\/\/localhost:3109\/#(invite)=([A-Za-z0-9_-]{43})$/.exec(link);
   await store.consume(member, token, purpose, 'fifteen chars ok!', '192.0.2.1');
   assert.equal((await store.user(member)).authVersion, 2);
   await assert.rejects(() => invite(member, 'invite', env, fetcher), /gunakan reset/);
   const reset = /#reset=(.+)$/.exec(await invite(member, 'reset', env, fetcher))[1];
+  const saved = env.TEAM_EMAILS, size = data.size;
+  try {
+    env.TEAM_EMAILS = OWNER;
+    await assert.rejects(() => invite(member, 'reset', env, fetcher), /daftar tim/);
+    await assert.rejects(() => store.consume(member, reset, 'reset', 'another fifteen chars', '192.0.2.1'), {status:401});
+    assert.equal(data.size,size);
+  } finally { env.TEAM_EMAILS = saved; }
   await store.consume(member, reset, 'reset', 'another fifteen chars', '192.0.2.1');
   assert.equal((await store.user(member)).authVersion, 3);
   assert.match(await invite(OWNER, 'invite', env, fetcher), /#invite=/);

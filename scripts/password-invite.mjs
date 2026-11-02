@@ -6,7 +6,7 @@ import { passwordStore } from '../lib/password-auth.js';
 const fail = message => Object.assign(new Error(message), {usage:true});
 export async function invite(address, purpose = 'invite', env = process.env, fetcher = fetch) {
   address = typeof address === 'string' ? address.trim().toLowerCase() : '';
-  if (!allowedEmail(address)) throw fail('Email tidak ada di daftar tim.');
+  if (!allowedEmail(address, env)) throw fail('Email tidak ada di daftar tim.');
   if (!['invite','reset'].includes(purpose)) throw fail('Tujuan harus invite atau reset.');
   if (!env.APP_URL) throw fail('APP_URL belum diatur.');
   const user = await passwordStore(env, fetcher).user(address);

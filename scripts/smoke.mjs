@@ -35,7 +35,7 @@ try {
     }
   }
   if (configured) {
-    for (const address of ['jderchild@gmail.com','1nd0n3s1aemas@gmail.com','madepranajaya01@gmail.com']) {
+    for (const address of ['member@example.test','former@example.test','outsider@example.test']) {
       const Cookie = 'agen_session='+seal({kind:'identity',email:address,email_verified:true,sub:'synthetic',exp:Date.now()+100000},env.SESSION_SECRET);
       assert.equal((await fetch(origin+'/api/agents',{headers:{Cookie}})).status,401);
       assert.equal((await (await fetch(origin+'/api/session',{headers:{Cookie}})).json()).email,null);
