@@ -85,8 +85,7 @@ input, select { font: inherit; color: inherit; }
 .loginfields input { height: 48px; padding: 0 20px; border-radius: 999px; border: 1px solid var(--line2); background: #fff; margin-bottom: 8px; transition: border-color var(--ease); }
 .loginfields input:hover { border-color: rgba(0,0,0,.25); }
 .loginfields button { min-height: 48px; }
-.fieldgrid { display: grid; grid-template-columns: 1fr; gap: 0 16px; }
-@media (min-width: 640px) { .fieldgrid { grid-template-columns: 1fr 1fr; } }
+.fieldgrid { display: grid; grid-template-columns: 1fr; gap: 16px; }
 .fieldgrid input { min-width: 0; width: 100%; }
 .loginrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 14px; }
 .loginrow a { min-height: 44px; display: inline-flex; align-items: center; }

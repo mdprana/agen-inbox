@@ -157,8 +157,8 @@ export default function Home() {
         {authParam==='failed' && <p className="alert" role="alert">Login gagal. Pastikan akun benar dan semua izin Google disetujui.</p>}
         {tokenForm || <form className="loginfields" onSubmit={e=>credential(e,'login')}>
           <div className="fieldgrid">
-            <label>Email <span className="req" aria-hidden="true">*</span><input name="email" type="email" autoComplete="username" required maxLength={254} disabled={!session.passwordEnabled || authBusy}/></label>
-            <label>Kata sandi <span className="req" aria-hidden="true">*</span><input name="password" type="password" autoComplete="current-password" required minLength={15} disabled={!session.passwordEnabled || authBusy}/></label>
+            <label><span>Email <span className="req" aria-hidden="true">*</span></span><input name="email" type="email" autoComplete="username" required maxLength={254} disabled={!session.passwordEnabled || authBusy}/></label>
+            <label><span>Kata sandi <span className="req" aria-hidden="true">*</span></span><input name="password" type="password" autoComplete="current-password" required minLength={15} disabled={!session.passwordEnabled || authBusy}/></label>
           </div>
           <div className="divider"><span>atau</span></div>
           {session.configured && session.storageConfigured?<a className="button block" href="/api/auth/login"><img src="/google.png" width="20" height="20" alt="" aria-hidden="true"/>Lanjutkan dengan Google</a>:<button type="button" className="button block" disabled><img src="/google.png" width="20" height="20" alt="" aria-hidden="true"/>Lanjutkan dengan Google</button>}
