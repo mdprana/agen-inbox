@@ -1,6 +1,6 @@
 'use client';
 import {useEffect, useRef, useState} from 'react';
-import {displayDate, filterAgents, filterOptions, messageText, readableText, statusGroup} from '../lib/presentation.js';
+import {authorizeUrl, displayDate, filterAgents, filterOptions, messageText, readableText, statusGroup} from '../lib/presentation.js';
 function Icon({name}) {
   if(name==='refresh') return <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3a9 9 0 0 1 8.5 12h-3.3A6 6 0 0 0 7.8 7.8L10 10H3V3l2.6 2.6A9 9 0 0 1 12 3Z"/><path d="M12 21a9 9 0 0 1-8.5-12h3.3a6 6 0 0 0 9.4 7.2L14 14h7v7l-2.6-2.6A9 9 0 0 1 12 21Z"/></svg>;
   if(name==='block') return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m5.6 18.4 12.8-12.8"/></svg>;
@@ -29,6 +29,48 @@ export default function Home() {
   const [loading,setLoading]=useState(false), [mailLoading,setMailLoading]=useState(false), [saving,setSaving]=useState(false), [choice,setChoice]=useState('');
   const [mailVersion,setMailVersion]=useState(0), [filter,setFilter]=useState('all'), [mobileDetail,setMobileDetail]=useState(false), [copyState,setCopyState]=useState(''), [sessionFailed,setSessionFailed]=useState(false), [mailFailed,setMailFailed]=useState(false);
   const [loc,setLoc]=useState(noLoc), [panelOpen,setPanelOpen]=useState(false);
+  const [authBusy,setAuthBusy]=useState(false), [tokenPurpose,setTokenPurpose]=useState(''), [issuedLink,setIssuedLink]=useState(''), [mailError,setMailError]=useState('');
+  const credentialToken=useRef('');
+  useEffect(()=>{
+    const fragment=window.location.hash;
+    if(fragment) window.history.replaceState(null,'',window.location.pathname+window.location.search);
+    const match=/^#(invite|reset)=([A-Za-z0-9_-]{43})$/.exec(fragment);
+    if(match){credentialToken.current=match[2];setTokenPurpose(match[1]);}
+    const clear=()=>{credentialToken.current='';setIssuedLink('');};
+    window.addEventListener('pagehide',clear);
+    return ()=>{window.removeEventListener('pagehide',clear);credentialToken.current='';};
+  },[]);
+  async function post(path,body={}) {return api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
+  async function connect(provider) {
+    setAuthBusy(true);setError('');
+    try {
+      const response=await fetch(provider==='Sheets'?'/api/auth/connect':'/api/auth/outlook/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',redirect:'error',cache:'no-store'});
+      const data=await response.json(), url=response.ok && authorizeUrl(data.authorizeUrl,provider);
+      if(!url)throw new Error(data.error || 'Koneksi belum dapat dimulai.');
+      window.location.assign(url);
+    }
+    catch(e){setError(e.message);setAuthBusy(false);}
+  }
+  async function credential(event,action) {
+    event.preventDefault();if(authBusy)return;
+    const form=event.currentTarget, fields=new FormData(form);
+    const body={email:fields.get('email'),password:fields.get('password')};
+    setAuthBusy(true);setError('');setNotice('');setIssuedLink('');
+    try {
+      if(action==='login'){await post('/api/auth/password',body);form.reset();await loadSession();}
+      else if(action==='issue') {
+        const purpose=fields.get('purpose');
+        const result=await post('/api/auth/password/'+(purpose==='invite'?'invite':'reset'),{email:body.email,...(purpose==='reset'?{action:'issue'}:{})});
+        if(result.token && /^[A-Za-z0-9_-]{43}$/.test(result.token))setIssuedLink(window.location.origin+'/#'+purpose+'='+result.token);
+        else setNotice('Permintaan diproses bila akun memenuhi syarat.');
+      } else {
+        const purpose=action==='google'?'google':tokenPurpose;
+        await post('/api/auth/password/'+(purpose==='reset'?'reset':'enroll'),{...body,action:purpose==='reset'?'consume':purpose,token:credentialToken.current});
+        credentialToken.current='';setTokenPurpose('');form.reset();setAgents([]);setSelected(null);setMessages([]);
+        await loadSession();setNotice('Kata sandi tersimpan. Sesi lama dicabut; masuk kembali.');
+      }
+    } catch(e){setError(e.message);} finally {setAuthBusy(false);const input=form.querySelector('input[type="password"]');if(input)input.value='';}
+  }
   const detailHeading=useRef(null), searchInput=useRef(null), filterWrap=useRef(null), filterButton=useRef(null), filterPanel=useRef(null);
   useEffect(()=>{
     if(!panelOpen)return;
@@ -53,16 +95,16 @@ export default function Home() {
   }
   async function loadSession() {
     setSessionFailed(false);setError('');
-    try {const s=await api('/api/session');setSession(s);if(s.email && s.sharedReady) loadAgents();}
+    try {const s=await api('/api/session');setSession(s);if(s.email && s.sheetsReady) loadAgents();}
     catch(e) {setError(e.message);setSessionFailed(true);}
   }
   useEffect(()=>{loadSession();},[]);
   useEffect(()=>{
     let active=true;
-    setMessages([]);setLimited(false);setChoice('');setNotice('');setCopyState('');setMailFailed(false);
+    setMessages([]);setLimited(false);setChoice('');setNotice('');setCopyState('');setMailFailed(false);setMailError('');
     if(!selected) {setMailLoading(false);return;}
     setMailLoading(true);setError('');
-    api('/api/inbox?email='+encodeURIComponent(selected.email)).then(data=>{if(active){setMessages(data.messages);setLimited(data.limited);}}).catch(e=>{if(active){setError(e.message);setMailFailed(true);}}).finally(()=>{if(active)setMailLoading(false);});
+    api('/api/inbox?email='+encodeURIComponent(selected.email)).then(data=>{if(active){setMessages(data.messages);setLimited(data.limited);}}).catch(e=>{if(active){setMailError(e.message);setMailFailed(true);}}).finally(()=>{if(active)setMailLoading(false);});
     return ()=>{active=false;};
   },[selected?.email,mailVersion]);
   useEffect(()=>{if(mobileDetail)detailHeading.current?.focus();},[mobileDetail,selected?.email,selected?.sheet]);
@@ -76,6 +118,7 @@ export default function Home() {
     } catch(e) {setError(e.message);} finally {setSaving(false);}
   }
   async function logout() {
+    credentialToken.current='';setTokenPurpose('');setIssuedLink('');
     try {await api('/api/auth/logout',{method:'POST'});setAgents([]);setMessages([]);setSelected(null);setSession(s=>({...s,email:null}));setError('');setNotice('');setCopyState('');}catch(e){setError(e.message);}
   }
   async function copyAlias() {
@@ -98,24 +141,30 @@ export default function Home() {
     {sheets.map(s=><button key={s} className="menuitem" onClick={()=>setLocField('sheet',s)} aria-pressed={loc.sheet===s} disabled={saving}><Icon name="building"/><span className="menutext">{s}</span></button>)}</div>
   </>;
   const skip=<a href="#content" className="skip">Lewati ke konten</a>;
+  const passwordFields=<><label>Email tim<input name="email" type="email" autoComplete="username" required maxLength={254}/></label><label>Kata sandi<input name="password" type="password" autoComplete={tokenPurpose?'new-password':'current-password'} required minLength={15} aria-describedby="password-rule"/></label><p id="password-rule">Minimal 15 karakter, maksimal 128 byte UTF-8. Spasi dan tempel diperbolehkan.</p></>;
+  const tokenForm=tokenPurpose && <form className="loginfields" onSubmit={e=>credential(e,'consume')}><h2>{tokenPurpose==='invite'?'Terima undangan':'Reset kata sandi'}</h2><p>Token hanya dari fragmen undangan privat, berlaku 30 menit dan sekali pakai. Tidak ada pendaftaran publik.</p>{passwordFields}<button disabled={!session?.passwordEnabled || authBusy}>Simpan kata sandi</button><button type="button" onClick={()=>{credentialToken.current='';setTokenPurpose('');}}>Batalkan dan hapus token</button></form>;
+  const passwordTools=<details className="passwordtools"><summary>Kata sandi tim</summary>{!session?.passwordEnabled?<p>Kata sandi dinonaktifkan. Formulir bukan bukti kesiapan; enrollment, pemulihan dan gerbang keamanan belum disetujui.</p>:<><p>Kata sandi hanya untuk identitas. Tidak memperbaiki Google disabled_client atau memberi akses Sheets/Outlook.</p>{session.email && <form className="loginfields" onSubmit={e=>credential(e,'google')}><label>Kata sandi baru<input name="password" type="password" autoComplete="new-password" required minLength={15}/></label><p>Enrollment hanya setelah login Google dalam 10 menit, bila belum punya kata sandi. Minimal 15 karakter, maksimal 128 byte UTF-8. Semua sesi lama dicabut.</p><button disabled={authBusy}>Daftarkan kata sandi sendiri</button></form>}{session.owner && <form className="loginfields" onSubmit={e=>credential(e,'issue')}><label>Email anggota<input name="email" type="email" autoComplete="off" required maxLength={254}/></label><label>Tujuan<select name="purpose"><option value="invite">Undangan</option><option value="reset">Reset</option></select></label><p>Memerlukan autentikasi pemilik dalam 10 menit dan rencana pengiriman privat yang disetujui. Tidak ada pengiriman email atau pemulihan pemilik.</p><button disabled={authBusy}>Terbitkan tautan privat</button></form>}{issuedLink && <div role="status"><label>Tautan rahasia — salin manual, jangan kirim tanpa persetujuan<input className="issuedlink" readOnly value={issuedLink} autoComplete="off" onFocus={e=>e.target.select()}/></label><button onClick={()=>setIssuedLink('')}>Hapus tautan dari layar</button></div>}</>}{tokenForm}</details>;
+  const connections=session && <section className="connections" aria-label="Koneksi sumber data">{['Sheets','Outlook'].map(provider=><div key={provider}><strong>{provider}: {session[provider.toLowerCase()+'Ready']?'siap':'belum siap'}</strong><p>{session[provider.toLowerCase()]?.error}</p>{session.owner && <button onClick={()=>connect(provider)} disabled={authBusy}>Hubungkan ulang {provider}</button>}</div>)}{!session.owner && <p>Hubungi pemilik madepranajaya01@gmail.com. Outlook bukan akun login tim.</p>}{['connect_failed','outlook_failed'].includes(authParam) && <p role="alert">Koneksi gagal. Periksa akun, izin dan konfigurasi penyedia.</p>}<button onClick={loadSession} disabled={authBusy}>Periksa koneksi</button></section>;
   const card=children=><>{skip}<main id="content" className="centered"><section className="welcome"><div className="welcomeicon"><img src="/icon.svg" alt="" width="48" height="48"/></div>{alerts}{children}</section>{footer}</main></>;
 
   if(!session) return card(<><p className="eyebrow">AKSES PRIBADI</p><h2>{sessionFailed?'Sesi belum dapat dimuat.':'Menyiapkan ruang kerja…'}</h2><p>{sessionFailed?'Periksa koneksi, lalu coba kembali.':'Memeriksa sesi sebelum menampilkan data agen.'}</p>{sessionFailed?<button onClick={loadSession}>Coba lagi</button>:<p role="status">Memeriksa sesi…</p>}</>);
-  if(!session.configured) return card(<><p className="eyebrow">PENYIAPAN DIPERLUKAN</p><h2>Hubungkan sumber kerja Anda.</h2><p>Konfigurasi server belum lengkap. Data Gmail dan Sheets tidak ditampilkan sampai akses siap.</p><ul className="configlist">{session.missing.map(m=><li key={m}><code>{m}</code></li>)}</ul><p>Lihat README untuk konfigurasi OAuth dan spreadsheet. Tidak ada data contoh.</p></>);
   if(!session.email) return <>{skip}<main id="content" className="login">
     <section className="loginform">
       <div className="loginstack">
         <h1>Masuk ke Agen Inbox</h1>
-        <p className="muted">Khusus akun tim yang diizinkan. <a href="mailto:1nd0n3s1aemas@gmail.com?subject=Akses%20Agen%20Inbox">Minta akses</a></p>
+        <p className="muted">Khusus empat akun tim yang diizinkan. Pengelola: madepranajaya01@gmail.com. Tidak ada pendaftaran publik.</p>
+         {!session.configured && <div className="alert"><strong>Google belum dikonfigurasi.</strong><ul className="configlist">{session.missing.map(m=><li key={m}><code>{m}</code></li>)}</ul></div>}
         {alerts}
         {authParam==='failed' && <p className="alert" role="alert">Login gagal. Pastikan akun benar dan semua izin Google disetujui.</p>}
         <form method="get" action="/api/auth/login" className="loginfields">
           <label htmlFor="login-hint">Email Google <span className="req" aria-hidden="true">*</span></label>
           <input id="login-hint" type="email" name="login_hint" autoComplete="email" placeholder="nama@gmail.com" required/>
-          <button className="primary block" type="submit"><span className="gcircle"><img src="/google.png" width="20" height="20" alt="" aria-hidden="true"/></span>Lanjutkan dengan Google</button>
+          <button className="primary block" type="submit" disabled={!session.configured || !session.storageConfigured}><span className="gcircle"><img src="/google.png" width="20" height="20" alt="" aria-hidden="true"/></span>Lanjutkan dengan Google</button>
         </form>
         <div className="divider"><span>atau</span></div>
-        <a className="button block" href="/api/auth/login"><img src="/google.png" width="20" height="20" alt="" aria-hidden="true"/>Pilih akun Google lain</a>
+         <h2>Masuk dengan kata sandi</h2>
+         {session.passwordEnabled?<form className="loginfields" onSubmit={e=>credential(e,'login')}>{passwordFields}<button disabled={authBusy}>Masuk dengan kata sandi</button></form>:<p>Kata sandi dinonaktifkan; belum siap dipakai. Tidak memperbaiki Google disabled_client atau menghubungkan sumber data.</p>}
+         {passwordTools}
       </div>
     </section>
     <aside className="loginpanel">
@@ -123,19 +172,19 @@ export default function Home() {
         <div className="loginbrand"><span className="brandcircle"><Glyph/></span>Agen Inbox</div>
         <h2>Satu inbox untuk<br/>setiap alias agen.</h2>
         <p>Baca email alias, buka tautan LinkUMKM secara manual, lalu catat BERHASIL atau GAGAL langsung ke Google Sheets.</p>
-        <div className="services"><span className="circles" aria-hidden="true"><span>G</span><span>S</span></span><span>Terhubung ke <strong>2</strong> layanan Google: Gmail dan Sheets.</span></div>
+        <div className="services"><span className="circles" aria-hidden="true"><span>G</span><span>S</span></span><span>Dua koneksi terpisah: Google Sheets dan Outlook. Inbox + Junk, bukan seluruh riwayat mailbox.</span></div>
       </div>
     </aside>
   </main></>;
-  if(!session.sharedReady) return card(<><h2>Koneksi Google pemilik belum siap.</h2>{authParam==='connect_failed' && <p className="alert" role="alert">Koneksi gagal. Pemilik harus menyetujui izin Gmail dan Sheets dengan akun pemilik; periksa penyimpanan server.</p>}<p>{session.connectionError || 'Gmail dan Sheets memakai koneksi bersama milik pemilik.'}</p>{session.owner?<a className="primary button" href="/api/auth/connect">Hubungkan Gmail & Sheets<Icon name="arrow"/></a>:<p>Hubungi pemilik 1nd0n3s1aemas@gmail.com untuk menghubungkan ulang. Gmail anggota tidak digunakan.</p>}<button onClick={loadSession}>Periksa kembali</button></>);
+  if(!session.sheetsReady) return card(<><h2>Koneksi Sheets pemilik belum siap.</h2><p>Login tidak memberi izin sumber data. Sheets dan Outlook diperiksa terpisah.</p>{connections}{passwordTools}<button onClick={logout}>Keluar</button></>);
 
   const initials=(session.email.split('@')[0].replace(/[^a-z0-9]/gi,'').slice(0,2) || '?').toUpperCase();
   return <>{skip}<div className="app">
     <aside className="sidebar" aria-label="Navigasi">
       <a className="brand" href="/" aria-label="Agen Inbox, beranda"><img src="/icon.svg" alt="" width="32" height="32"/><span>Agen Inbox</span></a>
       <nav className="menu" aria-label="Menu utama">{menu}</nav>
-      {session.owner && <div className="ownercard"><span className="ownersparkle"><Icon name="sparkle"/></span><strong>Koneksi Google</strong><p>Gmail & Sheets memakai akun pemilik.</p><a className="ownerbutton" href="/api/auth/connect">Hubungkan ulang</a></div>}
-      <div className="profile"><span className="avatar" aria-hidden="true">{initials}</span><span className="profiletext"><span className="profileemail">{session.email}</span><small>Koneksi pemilik siap. Gmail anggota tidak digunakan.</small></span><button className="iconbutton" onClick={logout} disabled={saving} aria-label="Keluar"><Icon name="exit"/></button></div>
+
+      <div className="profile"><span className="avatar" aria-hidden="true">{initials}</span><span className="profiletext"><span className="profileemail">{session.email}</span><small>Sheets siap. Outlook diperiksa terpisah.</small></span><button className="iconbutton" onClick={logout} disabled={saving} aria-label="Keluar"><Icon name="exit"/></button></div>
     </aside>
     <div className="appmain">
       <header className="apphead">
@@ -145,10 +194,11 @@ export default function Home() {
           <button className="primary" onClick={loadAgents} disabled={loading || saving}><Icon name="refresh"/>Muat ulang data</button>
         </div>
       </header>
-      <nav className="mobilemenu" aria-label="Menu utama">{menu}{session.owner && <a className="menuitem" href="/api/auth/connect"><Icon name="refresh"/><span>Hubungkan ulang Gmail & Sheets</span></a>}</nav>
+      <nav className="mobilemenu" aria-label="Menu utama">{menu}</nav>
       <main id="content" className="content">
         <div className="pagetitle"><h1>Inbox agen</h1><p>Email alias dan hasil peninjauan, langsung dari Google Sheets.</p></div>
         {alerts}
+        {connections}{passwordTools}<button onClick={logout}>Keluar</button>
         <section className="stats" aria-label="Ringkasan status agen">{filters.map(([value,label])=><button key={value} onClick={()=>pickFilter(value)} className={'stat '+value} aria-pressed={filter===value} disabled={saving}><span className="stattop"><span className="staticon"><Icon name={filterIcons[value]}/></span>{value!=='all' && <span className="statshare" title="dari total">{counts.all?Math.round(counts[value]/counts.all*100):0}%<span className="sr-only"> dari total</span></span>}</span><small>{label}</small><strong>{loading?'…':counts[value]}</strong></button>)}</section>
         <div className={'workspace '+(mobileDetail?'show-detail':'show-list')}>
           <aside className="agents" aria-label="Daftar agen">
@@ -161,12 +211,12 @@ export default function Home() {
               <div className="detailhead"><div className="detailtitle"><span className="eyebrow">INBOX ALIAS</span><h2 ref={detailHeading} tabIndex={-1}>{selected.name || 'Tanpa nama'}</h2><div className="aliasrow"><span className="email">{selected.email}</span><button className="copybutton" onClick={copyAlias} aria-label="Salin alias email"><Icon name="copy"/>{copyState==='Alias disalin.'?'Disalin':'Salin'}</button></div><div role="status" className={copyState?'copyfeedback':'sr-only'}>{copyState}</div></div><div className="detailactions"><Badge status={selected.status}/><button disabled={mailLoading || saving} onClick={()=>setMailVersion(v=>v+1)}><Icon name="refresh"/>Segarkan</button></div></div>
               <div className="mailheading"><h3><Icon name="inbox"/>Pesan masuk</h3><span>{mailLoading?'Memuat…':`${messages.length} pesan`}</span></div>
               <div className="mail" aria-busy={mailLoading}>
-                {mailLoading?<div className="loadingstate" role="status"><Icon name="inbox"/><strong>Menelusuri inbox alias…</strong><p>Mencocokkan penerima email dengan alias ini.</p></div>:mailFailed?<div className="empty"><Icon name="refresh"/><h3>Inbox belum dapat dimuat.</h3><p>Periksa koneksi atau izin Gmail, lalu segarkan kembali.</p><button onClick={()=>setMailVersion(v=>v+1)}>Coba lagi</button></div>:messages.length?messages.map((m,i)=><details key={m.id} open={i===0}>
+                {mailLoading?<div className="loadingstate" role="status"><Icon name="inbox"/><strong>Menelusuri inbox alias…</strong><p>Mencocokkan penerima email dengan alias ini.</p></div>:mailFailed?<div className="empty"><Icon name="refresh"/><h3>Inbox belum dapat dimuat.</h3><p role="alert">{mailError}</p><p>Periksa Outlook dan alias mdprana.site. Daftar agen dan status manual tetap tersedia melalui Sheets.</p><button onClick={()=>setMailVersion(v=>v+1)}>Coba lagi</button></div>:messages.length?messages.map((m,i)=><details key={m.id} open={i===0}>
                   <summary><span className="messageindex" aria-hidden="true">{String(i+1).padStart(2,'0')}</span><span className="messagesubject">{readableText(m.subject)}<small><span>{displayDate(m.date)}</span><span className="sep" aria-hidden="true"> · </span><span>{readableText(m.from)}</span></small></span><span className="disclosure" aria-hidden="true">⌄</span></summary>
                   {m.links.length>0 && <div className="links"><div className="linkheading"><Icon name="arrow"/><strong>Tautan dengan hostname yang diizinkan</strong></div><p>Hostname cocok dengan daftar izin LinkUMKM. Ini bukan verifikasi pengirim, keamanan, atau tujuan pengalihan. Tinjau pesan sebelum membuka.</p><div className="linkactions">{m.links.map((link,j)=><a className="button primary" key={link} href={link} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">Buka tautan LinkUMKM{m.links.length>1?` ${j+1}`:''}<Icon name="arrow"/><span className="sr-only"> (tab baru)</span></a>)}</div><small>Dibuka manual di tab baru. Tidak ada aktivasi otomatis.</small></div>}
-                  <div className="messagebody">{m.html?<><span className="bodylabel">TAMPILAN EMAIL · HTML TERISOLASI</span><p className="previewnote">Format pengirim dipertahankan sejauh memungkinkan. Gambar, pelacak, dan tautan di dalam pratinjau dinonaktifkan. Tampilan dapat berbeda dari Gmail.</p><iframe className="emailpreview" title={`Pratinjau email ${i+1}: ${readableText(m.subject)}`} sandbox="" referrerPolicy="no-referrer" srcDoc={m.html}/><details className="textfallback"><summary>Lihat versi teks</summary><pre>{messageText(m.body) || 'Tidak ada versi teks.'}</pre></details></>:<><span className="bodylabel">ISI EMAIL · TEKS SAJA</span><pre>{messageText(m.body) || 'Tidak ada isi teks yang dapat ditampilkan.'}</pre></>}</div>
-                </details>):<div className="empty"><Icon name="inbox"/><h3>Belum ada email yang cocok.</h3><p>Pesan harus ditujukan persis ke alias ini. Hanya akun utama dan alias + akun pribadi yang didukung.</p><button onClick={()=>setMailVersion(v=>v+1)}>Periksa kembali</button></div>}
-                {limited && <p className="limitnote">Menampilkan hingga 50 hasil pencarian terbaru. Email lain mungkin masih tersedia di Gmail.</p>}
+                  <div className="messagebody">{m.html?<><span className="bodylabel">TAMPILAN EMAIL · HTML TERISOLASI</span><p className="previewnote">Format pengirim dipertahankan sejauh memungkinkan. Gambar, pelacak, dan tautan di dalam pratinjau dinonaktifkan. Tampilan dapat berbeda dari Outlook.</p><iframe className="emailpreview" title={`Pratinjau email ${i+1}: ${readableText(m.subject)}`} sandbox="" referrerPolicy="no-referrer" srcDoc={m.html}/><details className="textfallback"><summary>Lihat versi teks</summary><pre>{messageText(m.body) || 'Tidak ada versi teks.'}</pre></details></>:<><span className="bodylabel">ISI EMAIL · TEKS SAJA</span><pre>{messageText(m.body) || 'Tidak ada isi teks yang dapat ditampilkan.'}</pre></>}</div>
+                </details>):<div className="empty"><Icon name="inbox"/><h3>Belum ada email yang cocok.</h3><p>Tidak ada kecocokan dalam jendela Inbox + Junk yang dipindai, bukan bukti email tidak ada. Hanya alias mdprana.site unik di Sheets didukung; penerima harus cocok persis. Alias Gmail lama tetap terlihat, tetapi inbox-nya tidak didukung.</p><button onClick={()=>setMailVersion(v=>v+1)}>Periksa kembali</button></div>}
+                {limited && <p className="limitnote">Pemindaian terbatas: Inbox + Junk, maksimal 5 halaman × 100 kandidat per folder dan 50 pesan cocok. Pesan lain mungkin di luar jendela ini; folder lain tidak diperiksa.</p>}
               </div>
               <form className="statusform" onSubmit={submit}><div className="statusintro"><h3>Catat hasil peninjauan</h3><p>Keputusan Anda, bukan hasil otomatis. Status saat ini: <strong>{selected.status || 'Belum diisi'}</strong>.</p></div>{!selected.writable && <p className="alert">Tidak dapat menyimpan: email duplikat atau kolom Status tidak ditemukan.</p>}<fieldset disabled={saving || !selected.writable}><legend>Pilih hasil manual</legend><label className="option success"><input type="radio" name="status" value="BERHASIL" checked={choice==='BERHASIL'} onChange={e=>setChoice(e.target.value)}/><span>BERHASIL<small>Peninjauan berhasil</small></span></label><label className="option failed"><input type="radio" name="status" value="GAGAL" checked={choice==='GAGAL'} onChange={e=>setChoice(e.target.value)}/><span>GAGAL<small>Peninjauan gagal</small></span></label></fieldset><div className="savebar"><p><Icon name="sheet"/>Hanya sel Status email ini yang diubah. Jangan urutkan lembar saat menyimpan.</p><button className="primary" disabled={!choice || saving || !selected.writable}><Icon name="check"/>{saving?'Menyimpan…':'Simpan ke Sheets'}</button></div></form>
             </>}

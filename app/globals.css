@@ -73,7 +73,14 @@ input, select { font: inherit; color: inherit; }
 .login h1 { font-size: 40px; }
 .loginform a:not(.button) { color: #000; font-weight: 600; text-underline-offset: 3px; }
 .loginfields { display: flex; flex-direction: column; gap: 8px; }
-.loginfields label { font-size: 14px; font-weight: 600; }
+.loginfields label { font-size: 14px; font-weight: 600; display: flex; flex-direction: column; gap: 8px; }
+.connections, .passwordtools { border: 1px solid var(--line2); border-radius: 20px; padding: 16px; margin-bottom: 16px; overflow-wrap: anywhere; }
+.connections { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.connections > div { flex: 1 1 200px; min-width: 0; }
+.passwordtools summary { cursor: pointer; min-height: 44px; }
+.passwordtools .loginfields { margin: 16px 0; }
+.passwordtools input, .passwordtools select { max-width: 100%; min-height: 44px; }
+.issuedlink { display: block; width: 100%; }
 .req { color: var(--red); }
 .loginfields input { height: 48px; padding: 0 20px; border-radius: 999px; border: 1px solid var(--line2); background: #fff; margin-bottom: 8px; transition: border-color var(--ease); }
 .loginfields input:hover { border-color: rgba(0,0,0,.25); }

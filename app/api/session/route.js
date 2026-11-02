@@ -1,17 +1,18 @@
-import { config, readSession, requireSession } from '../../../lib/google.js';
+import { config, requireSheets } from '../../../lib/google.js';
+import { requireIdentity } from '../../../lib/auth.js';
 import { OWNER } from '../../../lib/helpers.js';
-import { identitySession, storageConfig } from '../../../lib/team-auth.js';
+import { storageConfig } from '../../../lib/redis.js';
+import { requireOutlook } from '../../../lib/outlook.js';
+import { passwordEnabled } from '../../../lib/password-auth.js';
 export async function GET() {
   const missing = config();
-  let identity = null, ready = false, connectionError = '';
-  if (!missing.length) {
-    const raw = await readSession();
-    try { identity = identitySession(raw); } catch {}
-    // requireSession migrates only previously sealed verified-owner legacy cookies.
-    if (identity || (raw && !raw.kind && raw.email === OWNER)) {
-      try { const session = await requireSession(); identity = identitySession(session); ready = true; }
-      catch(e) { connectionError = e.message; }
-    }
+  let identity = null, sheetsReady = false, sheetsError = '', outlookReady = false, outlookError = '';
+  try { identity = await requireIdentity(); } catch {}
+  if (identity) {
+    try { await requireSheets(); sheetsReady = true; }
+    catch { sheetsError = 'Koneksi Sheets belum siap. Pemilik harus memeriksa konfigurasi atau hubungkan ulang.'; }
+    try { await requireOutlook(); outlookReady = true; }
+    catch { outlookError = 'Koneksi Outlook belum siap. Pemilik harus memeriksa konfigurasi atau hubungkan ulang Outlook.'; }
   }
-  return Response.json({configured:!missing.length, missing, email:identity?.email || null, owner:identity?.email === OWNER, sharedReady:ready, storageConfigured:!storageConfig().length, connectionError}, {headers:{'Cache-Control':'no-store'}});
+  return Response.json({configured:!missing.length, missing, email:identity?.email || null, owner:identity?.email === OWNER, sheetsReady, outlookReady, sheets:{ready:sheetsReady, state:sheetsReady ? 'ready' : 'setup_or_reconnect', error:sheetsError}, outlook:{ready:outlookReady, state:outlookReady ? 'ready' : 'setup_or_reconnect', error:outlookError, coverage:'Inbox + Junk'}, passwordEnabled:passwordEnabled(), sharedReady:sheetsReady, storageConfigured:!storageConfig().length, connectionError:sheetsError}, {headers:{'Cache-Control':'no-store'}});
 }

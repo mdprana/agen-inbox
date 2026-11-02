@@ -1,2 +1,6 @@
 import { startOAuth, errorResponse } from '../../../../lib/google.js';
-export async function GET() { try { return await startOAuth('connect'); } catch(e) { return errorResponse(e); } }
+import { checkOrigin, jsonBody, authorizeResponse } from '../../../../lib/auth.js';
+export async function POST(request) {
+  try { checkOrigin(request); await jsonBody(request); return authorizeResponse(await startOAuth('connect'), 'Sheets'); }
+  catch(e) { return errorResponse(e); }
+}
