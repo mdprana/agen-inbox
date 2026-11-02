@@ -1,0 +1,10 @@
+name = "agen-inbox-mail"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+[[kv_namespaces]]
+binding = "MAIL"
+id = "fc5df48ffc0a45e19b7db43b0f3f515e"
+
+# Secrets (never commit): wrangler secret put READ_TOKEN
+# Required production backup: wrangler secret put FORWARD_TO (ind0n3s1aemas@outlook.com)

@@ -6,3 +6,4 @@ node_modules/
 *.xls
 *.csv
 .vercel/
+.vercel
