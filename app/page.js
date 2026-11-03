@@ -1,5 +1,6 @@
 'use client';
 import {useEffect, useRef, useState} from 'react';
+import ThemeToggle from './theme-toggle.js';
 import {authorizeUrl, displayDate, filterAgents, filterOptions, messageText, readableText, statusGroup} from '../lib/presentation.js';
 function Icon({name}) {
   if(name==='refresh') return <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3a9 9 0 0 1 8.5 12h-3.3A6 6 0 0 0 7.8 7.8L10 10H3V3l2.6 2.6A9 9 0 0 1 12 3Z"/><path d="M12 21a9 9 0 0 1-8.5-12h3.3a6 6 0 0 0 9.4 7.2L14 14h7v7l-2.6-2.6A9 9 0 0 1 12 21Z"/></svg>;
@@ -157,10 +158,11 @@ export default function Home() {
   const passwordFields=rule=><><label>Email tim<input name="email" type="email" autoComplete="username" required maxLength={254}/></label><label>Kata sandi<input name="password" type="password" autoComplete={tokenPurpose?'new-password':'current-password'} required minLength={15} aria-describedby={rule?'password-rule':undefined}/></label>{rule && <p id="password-rule">Minimal 15 karakter, maksimal 128 byte UTF-8. Spasi dan tempel diperbolehkan.</p>}</>;
   const tokenForm=tokenPurpose && <form className="loginfields" onSubmit={e=>credential(e,'consume')}><h2>{tokenPurpose==='invite'?'Terima undangan':'Reset kata sandi'}</h2><p>Token hanya dari fragmen undangan privat, berlaku 30 menit dan sekali pakai. Tidak ada pendaftaran publik.</p>{passwordFields(true)}<button disabled={!session?.passwordEnabled || authBusy}>Simpan kata sandi</button><button type="button" onClick={()=>{credentialToken.current='';setTokenPurpose('');}}>Batalkan dan hapus token</button></form>;
   const connectionCard=extra=><div className={'ownercard'+(extra||'')}><span className="ownersparkle"><Icon name="sparkle"/></span><strong>Koneksi Sheets &amp; Email</strong><p><span className={'dot '+(session.sheetsReady?'ok':'off')} aria-hidden="true"/>Sheets {session.sheetsReady?'siap':'belum siap'}</p><p><span className={'dot '+(session.mailReady?'ok':'off')} aria-hidden="true"/>Email {session.mailReady?'siap':'belum siap'}</p>{authParam==='connect_failed' && <p role="alert">Koneksi gagal. Coba lagi.</p>}{!session.owner && <p>Hubungi pemilik bila belum siap.</p>}<div className="ownerrow">{session.owner && <button className="ownerbutton" onClick={()=>connect('Sheets')} disabled={authBusy}>Hubungkan ulang</button>}<button className={'ownerbutton'+(session.owner?' ghost':'')} onClick={loadSession} disabled={authBusy}>Periksa</button></div></div>;
-  const card=children=><>{skip}<main id="content" className="centered"><section className="welcome"><div className="welcomeicon"><img src="/icon.svg" alt="" width="48" height="48"/></div>{alerts}{children}</section>{footer}</main></>;
+  const card=children=><>{skip}<main id="content" className="centered"><ThemeToggle className="corner"/><section className="welcome"><div className="welcomeicon"><img src="/icon.svg" alt="" width="48" height="48"/></div>{alerts}{children}</section>{footer}</main></>;
 
   if(!session) return card(<><p className="eyebrow">AKSES PRIBADI</p><h2>{sessionFailed?'Sesi belum dapat dimuat.':'Menyiapkan ruang kerja…'}</h2><p>{sessionFailed?'Periksa koneksi, lalu coba kembali.':'Memeriksa sesi sebelum menampilkan data agen.'}</p>{sessionFailed?<button onClick={loadSession}>Coba lagi</button>:<p role="status">Memeriksa sesi…</p>}</>);
   if(!session.email) return <>{skip}<main id="content" className="login">
+    <ThemeToggle className="corner"/>
     <section className="loginform">
       <div className="loginstack">
         <h1>Masuk ke Agen Inbox</h1>
@@ -202,6 +204,7 @@ export default function Home() {
       <header className="apphead">
         <label className="search" htmlFor="agent-search"><span className="sr-only">Cari agen</span><Icon name="search"/><input ref={searchInput} id="agent-search" name="agent-search" type="search" autoComplete="off" placeholder="Nama, email, atau lembar" value={query} onChange={e=>{setQuery(e.target.value);setView('inbox');}} onKeyDown={jump}/><kbd aria-hidden="true">{mac?'⌘K':'Ctrl K'}</kbd></label>
         <div className="headactions">
+          <ThemeToggle/>
           <div className="filterwrap" ref={filterWrap} onKeyDown={e=>{if(e.key==='Escape' && panelOpen){e.stopPropagation();setPanelOpen(false);filterButton.current?.focus();}}}><button ref={filterButton} className="filterbutton" onClick={()=>setPanelOpen(o=>!o)} aria-expanded={panelOpen} aria-controls="filter-panel" disabled={saving}><Icon name="funnel"/>Filter{activeLoc>0 && <span className="filtercount"><span className="sr-only">, </span>{activeLoc}<span className="sr-only"> aktif</span></span>}</button>{panelOpen && <div id="filter-panel" ref={filterPanel} className="filterpanel" role="dialog" aria-label="Filter lokasi agen">{locFields.map(([key,label])=><label key={key}>{label}<select value={loc[key]} onChange={e=>setLocField(key,e.target.value)}><option value="">Semua</option>{options[key].map(v=><option key={v} value={v}>{v}</option>)}</select></label>)}<button type="button" onClick={()=>setLoc(noLoc)} disabled={!activeLoc}>Reset filter</button></div>}</div>
           <button className="primary" onClick={loadAgents} disabled={loading || saving}><Icon name="refresh"/>Muat ulang data</button>
         </div>
