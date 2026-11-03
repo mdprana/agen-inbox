@@ -248,7 +248,7 @@ kbd { font: 600 12px var(--ui); color: var(--muted); background: #fff; border: 1
 .messagebody { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 8px; }
 .bodylabel { font-size: 12px; font-weight: 600; letter-spacing: .06em; color: var(--label); }
 .previewnote { font-size: 13px; color: var(--muted); }
-.emailpreview { width: 100%; height: 480px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.emailpreview { width: 100%; min-height: 160px; height: 480px; overflow: hidden; display: block; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
 .messagebody pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.6 var(--mono); background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin: 0; max-height: 480px; overflow: auto; }
 .textfallback summary { cursor: pointer; font-size: 13px; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
 .limitnote { font-size: 13px; color: var(--muted); text-align: center; }
