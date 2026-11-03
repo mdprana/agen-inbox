@@ -11,6 +11,10 @@ function Icon({name}) {
 }
 // Same glyph as app/icon.svg, without the black tile; colour follows currentColor.
 function Glyph() {return <svg className="glyph" viewBox="12 12 40 40" aria-hidden="true"><path d="M16 34v10a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4V34M16 34l5-16h22l5 16M16 34h9l3 5h8l3-5h9" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/></svg>;}
+function PasswordInput(props) {
+  const [show,setShow]=useState(false);
+  return <span className="pwfield"><input {...props} type={show?'text':'password'}/><button type="button" className="pweye" aria-label={show?'Sembunyikan kata sandi':'Tampilkan kata sandi'} aria-pressed={show} disabled={props.disabled} onClick={()=>setShow(v=>!v)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{show?<><path d="M10.7 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.2 3.2M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M2 2l20 20"/></>:<><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></>}</svg></button></span>;
+}
 function Badge({status}) {return <span className={'badge '+statusGroup(status)}>{status || 'Belum diisi'}</span>;}
 async function api(path, options) {
   const response=await fetch(path,{cache:'no-store',...options});
@@ -70,7 +74,7 @@ export default function Home() {
         credentialToken.current='';setTokenPurpose('');form.reset();setAgents([]);setSelected(null);setMessages([]);
         await loadSession();setNotice('Kata sandi tersimpan. Sesi lama dicabut; masuk kembali.');
       }
-    } catch(e){setError(e.message);} finally {setAuthBusy(false);const input=form.querySelector('input[type="password"]');if(input)input.value='';}
+    } catch(e){setError(e.message);} finally {setAuthBusy(false);const input=form.querySelector('input[name="password"]');if(input)input.value='';}
   }
   const detailHeading=useRef(null), searchInput=useRef(null), filterWrap=useRef(null), filterButton=useRef(null), filterPanel=useRef(null);
   useEffect(()=>{
@@ -155,14 +159,13 @@ export default function Home() {
     <div className="menugroup"><button className="menuitem" onClick={()=>{setView('settings');setMobileDetail(false);}} aria-pressed={view==='settings'} disabled={saving}><Icon name="settings"/><span>Pengaturan</span></button></div>
   </>;
   const skip=<a href="#content" className="skip">Lewati ke konten</a>;
-  const passwordFields=rule=><><label>Email tim<input name="email" type="email" autoComplete="username" required maxLength={254}/></label><label>Kata sandi<input name="password" type="password" autoComplete={tokenPurpose?'new-password':'current-password'} required minLength={15} aria-describedby={rule?'password-rule':undefined}/></label>{rule && <p id="password-rule">Minimal 15 karakter, maksimal 128 byte UTF-8. Spasi dan tempel diperbolehkan.</p>}</>;
+  const passwordFields=rule=><><label>Email tim<input name="email" type="email" autoComplete="username" required maxLength={254}/></label><label>Kata sandi<PasswordInput name="password" autoComplete={tokenPurpose?'new-password':'current-password'} required minLength={15} aria-describedby={rule?'password-rule':undefined}/></label>{rule && <p id="password-rule">Minimal 15 karakter, maksimal 128 byte UTF-8. Spasi dan tempel diperbolehkan.</p>}</>;
   const tokenForm=tokenPurpose && <form className="loginfields" onSubmit={e=>credential(e,'consume')}><h2>{tokenPurpose==='invite'?'Terima undangan':'Reset kata sandi'}</h2><p>Token hanya dari fragmen undangan privat, berlaku 30 menit dan sekali pakai. Tidak ada pendaftaran publik.</p>{passwordFields(true)}<button disabled={!session?.passwordEnabled || authBusy}>Simpan kata sandi</button><button type="button" onClick={()=>{credentialToken.current='';setTokenPurpose('');}}>Batalkan dan hapus token</button></form>;
   const connectionCard=extra=><div className={'ownercard'+(extra||'')}><span className="ownersparkle"><Icon name="sparkle"/></span><strong>Koneksi Sheets &amp; Email</strong><p><span className={'dot '+(session.sheetsReady?'ok':'off')} aria-hidden="true"/>Sheets {session.sheetsReady?'siap':'belum siap'}</p><p><span className={'dot '+(session.mailReady?'ok':'off')} aria-hidden="true"/>Email {session.mailReady?'siap':'belum siap'}</p>{authParam==='connect_failed' && <p role="alert">Koneksi gagal. Coba lagi.</p>}{!session.owner && <p>Hubungi pemilik bila belum siap.</p>}<div className="ownerrow">{session.owner && <button className="ownerbutton" onClick={()=>connect('Sheets')} disabled={authBusy}>Hubungkan ulang</button>}<button className={'ownerbutton'+(session.owner?' ghost':'')} onClick={loadSession} disabled={authBusy}>Periksa</button></div></div>;
-  const card=children=><>{skip}<main id="content" className="centered"><ThemeToggle className="corner"/><section className="welcome"><div className="welcomeicon"><img src="/icon.svg" alt="" width="48" height="48"/></div>{alerts}{children}</section>{footer}</main></>;
+  const card=children=><>{skip}<main id="content" className="centered"><section className="welcome"><div className="welcomeicon"><img src="/icon.svg" alt="" width="48" height="48"/></div>{alerts}{children}</section>{footer}</main></>;
 
   if(!session) return card(<><p className="eyebrow">AKSES PRIBADI</p><h2>{sessionFailed?'Sesi belum dapat dimuat.':'Menyiapkan ruang kerja…'}</h2><p>{sessionFailed?'Periksa koneksi, lalu coba kembali.':'Memeriksa sesi sebelum menampilkan data agen.'}</p>{sessionFailed?<button onClick={loadSession}>Coba lagi</button>:<p role="status">Memeriksa sesi…</p>}</>);
   if(!session.email) return <>{skip}<main id="content" className="login">
-    <ThemeToggle className="corner"/>
     <section className="loginform">
       <div className="loginstack">
         <h1>Masuk ke Agen Inbox</h1>
@@ -172,7 +175,7 @@ export default function Home() {
         {tokenForm || <form className="loginfields" onSubmit={e=>credential(e,'login')}>
           <div className="fieldgrid">
             <label><span>Email <span className="req" aria-hidden="true">*</span></span><input name="email" type="email" autoComplete="username" required maxLength={254} disabled={!session.passwordEnabled || authBusy}/></label>
-            <label><span>Kata sandi <span className="req" aria-hidden="true">*</span></span><input name="password" type="password" autoComplete="current-password" required minLength={15} disabled={!session.passwordEnabled || authBusy}/></label>
+            <label><span>Kata sandi <span className="req" aria-hidden="true">*</span></span><PasswordInput name="password" autoComplete="current-password" required minLength={15} disabled={!session.passwordEnabled || authBusy}/></label>
           </div>
           <div className="divider"><span>atau</span></div>
           {session.configured && session.storageConfigured?<a className="button block" href="/api/auth/login"><img src="/google.png" width="20" height="20" alt="" aria-hidden="true"/>Lanjutkan dengan Google</a>:<button type="button" className="button block" disabled><img src="/google.png" width="20" height="20" alt="" aria-hidden="true"/>Lanjutkan dengan Google</button>}
@@ -213,7 +216,7 @@ export default function Home() {
       <main id="content" className="content">
         {view==='settings'?<><div className="pagetitle"><h1>Pengaturan</h1><p>Akun dan akses tim.</p></div>{alerts}{connectionCard(' mobileonly')}
         <section className="setting"><div><h2>Akun</h2><p>{session.email}{session.owner?' · Pemilik':' · Anggota tim'}</p></div><button onClick={logout}>Keluar</button></section>
-        {session.passwordEnabled && <section className="setting"><div><h2>Kata sandi</h2><p>Atur kata sandi untuk akun ini. Hanya bisa dalam 10 menit setelah masuk dengan Google.</p></div><form onSubmit={e=>credential(e,'google')}><label>Kata sandi baru<input name="password" type="password" autoComplete="new-password" required minLength={15} aria-describedby="password-hint"/></label><small id="password-hint">Minimal 15 karakter.</small><button disabled={authBusy}>Simpan</button></form></section>}
+        {session.passwordEnabled && <section className="setting"><div><h2>Kata sandi</h2><p>Atur kata sandi untuk akun ini. Hanya bisa dalam 10 menit setelah masuk dengan Google.</p></div><form onSubmit={e=>credential(e,'google')}><label>Kata sandi baru<PasswordInput name="password" autoComplete="new-password" required minLength={15} aria-describedby="password-hint"/></label><small id="password-hint">Minimal 15 karakter.</small><button disabled={authBusy}>Simpan</button></form></section>}
         {session.owner && session.passwordEnabled && <section className="setting"><div><h2>Undang anggota</h2><p>Buat tautan sekali pakai (30 menit) untuk mengatur atau mereset kata sandi anggota.</p></div><div><form onSubmit={e=>credential(e,'issue')}><label>Email anggota<input name="email" type="email" autoComplete="off" required maxLength={254}/></label><label>Tujuan<select name="purpose"><option value="invite">Undangan</option><option value="reset">Reset</option></select></label><button disabled={authBusy}>Buat tautan</button></form>{issuedLink && <div role="status" className="issued"><label>Tautan sekali pakai — kirim langsung ke anggota<input className="issuedlink" readOnly value={issuedLink} autoComplete="off" onFocus={e=>e.target.select()}/></label><div className="ownerrow"><button onClick={()=>navigator.clipboard.writeText(issuedLink).then(()=>setNotice('Tautan disalin.'),()=>setNotice('Tidak dapat menyalin. Salin manual.'))}>Salin</button><button onClick={()=>setIssuedLink('')}>Hapus</button></div></div>}</div></section>}
       </>:<>
         <div className="pagetitle"><h1>Inbox agen</h1><p>Email alias dan hasil peninjauan, langsung dari Google Sheets.</p></div>
