@@ -30,37 +30,7 @@ export default function Home() {
   const [mailVersion,setMailVersion]=useState(0), [filter,setFilter]=useState('all'), [mobileDetail,setMobileDetail]=useState(false), [copyState,setCopyState]=useState(''), [sessionFailed,setSessionFailed]=useState(false), [mailFailed,setMailFailed]=useState(false);
   const [loc,setLoc]=useState(noLoc), [panelOpen,setPanelOpen]=useState(false), [view,setView]=useState('inbox');
   const [authBusy,setAuthBusy]=useState(false), [tokenPurpose,setTokenPurpose]=useState(''), [issuedLink,setIssuedLink]=useState(''), [mailError,setMailError]=useState(''), [mac,setMac]=useState(true);
-  const credentialToken=useRef(''), migrationBlob=useRef(null), migrationEpoch=useRef(0);
-  const [migration,setMigration]=useState(null), [migrationBusy,setMigrationBusy]=useState(false), [backupSaved,setBackupSaved]=useState(false);
-  async function simulateMigration() {
-    if(migrationBusy)return;
-    const epoch=++migrationEpoch.current;
-    setMigrationBusy(true);setMigration(null);setBackupSaved(false);migrationBlob.current=null;setError('');
-    try {
-      const response=await fetch('/api/migration',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'plan'}),cache:'no-store'});
-      if(!response.ok){const data=await response.json();throw new Error(data.error || 'Simulasi gagal.');}
-      const blob=await response.blob(), bytes=await blob.arrayBuffer();
-      const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
-      if(digest!==response.headers.get('X-Backup-SHA256'))throw new Error('Checksum backup tidak cocok.');
-      const data=JSON.parse(await blob.text());
-      const snapshotBytes=new TextEncoder().encode(JSON.stringify(data.snapshot));
-      const snapshotDigest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',snapshotBytes)),b=>b.toString(16).padStart(2,'0')).join('');
-      if(snapshotDigest!==data.snapshotChecksum)throw new Error('Checksum snapshot tidak cocok.');
-      if(epoch!==migrationEpoch.current)return;
-      migrationBlob.current=blob;
-      setMigration({report:data.report,title:data.snapshot.properties.title,workbook:data.snapshot.spreadsheetId,digest,snapshotDigest});
-    } catch(e){setError(e.message);} finally {setMigrationBusy(false);}
-  }
-  function downloadMigration() {
-    if(!migrationBlob.current)return;
-    const url=URL.createObjectURL(migrationBlob.current), link=document.createElement('a');
-    link.href=url;link.download='migration-backup.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-  };
-  useEffect(()=>{
-    const clear=()=>{migrationEpoch.current++;migrationBlob.current=null;setMigration(null);setBackupSaved(false);};
-    window.addEventListener('pagehide',clear);
-    return ()=>window.removeEventListener('pagehide',clear);
-  },[]);
+  const credentialToken=useRef('');
   useEffect(()=>{
     const fragment=window.location.hash;
     if(fragment) window.history.replaceState(null,'',window.location.pathname+window.location.search);
@@ -149,7 +119,7 @@ export default function Home() {
     } catch(e) {setError(e.message);} finally {setSaving(false);}
   }
   async function logout() {
-    credentialToken.current='';setTokenPurpose('');setIssuedLink('');migrationEpoch.current++;migrationBlob.current=null;setMigration(null);setBackupSaved(false);
+    credentialToken.current='';setTokenPurpose('');setIssuedLink('');
     try {await api('/api/auth/logout',{method:'POST'});setAgents([]);setMessages([]);setSelected(null);setSession(s=>({...s,email:null}));setError('');setNotice('');setCopyState('');}catch(e){setError(e.message);}
   }
   function pick(a) {setSelected(a);setMobileDetail(true);}
@@ -240,9 +210,7 @@ export default function Home() {
       <main id="content" className="content">
         {view==='settings'?<><div className="pagetitle"><h1>Pengaturan</h1><p>Akun dan akses tim.</p></div>{alerts}{connectionCard(' mobileonly')}
         <section className="setting"><div><h2>Akun</h2><p>{session.email}{session.owner?' · Pemilik':' · Anggota tim'}</p></div><button onClick={logout}>Keluar</button></section>
-                 {session.owner && <section className="setting" aria-label="Migrasi alias read-only"><div><h2>Migrasi alias — read-only</h2><p>Simulasi nyata dan backup privat dari snapshot yang sama. Tidak mengubah Sheets, status, email atau aktivasi. Apply ditolak server: kapasitas provider dan batas keras runtime belum diverifikasi DEV.</p><button onClick={simulateMigration} disabled={migrationBusy || !session.sheetsReady}>{migrationBusy?'Membaca snapshot…':'Simulasikan migrasi'}</button><button disabled>Terapkan tidak tersedia</button>
-         {migration && <div role="status" style={{overflowWrap:'anywhere'}}><p>Workbook: {migration.title} · {migration.workbook}. Cocokkan dengan workbook tujuan.</p><p>Kandidat: {migration.report.eligible} · Konflik: {migration.report.conflicts}</p>{migration.report.sheets.map(s=><p key={s.sheetId}>{s.title}{s.hidden?' (tersembunyi)':''}: total {s.total}, kandidat {s.eligible}, existing {s.existing}, BERHASIL {s.success}, GAGAL {s.failed}, status lain {s.otherStatus}, skipped {s.skipped}, konflik {s.conflicts}{s.excluded?' · excluded':''}</p>)}<p>SHA-256 file: {migration.digest}</p><p>SHA-256 snapshot: {migration.snapshotDigest}</p><button onClick={downloadMigration}>Unduh backup terverifikasi</button><p>Simpan di folder privat di luar repo/cloud-public, ACL privat setara directory 0700/file 0600. Periksa SHA-256 file tersimpan. Download tidak membuktikan file sudah disimpan.</p><label><input type="checkbox" checked={backupSaved} onChange={e=>setBackupSaved(e.target.checked)}/> Saya menyimpan dan memverifikasi backup privat ini. Pengakuan lokal saja, tidak membuka Apply.</label><p>{migration.report.reason} Snapshot hanya di memori tab; reload/keluar menghapusnya. Simulasi baru membaca snapshot baru, bukan melanjutkan plan.</p></div>}</div></section>}
-         {session.passwordEnabled && <section className="setting"><div><h2>Kata sandi</h2><p>Atur kata sandi untuk akun ini. Hanya bisa dalam 10 menit setelah masuk dengan Google.</p></div><form onSubmit={e=>credential(e,'google')}><label>Kata sandi baru<input name="password" type="password" autoComplete="new-password" required minLength={15} aria-describedby="password-hint"/></label><small id="password-hint">Minimal 15 karakter.</small><button disabled={authBusy}>Simpan</button></form></section>}
+        {session.passwordEnabled && <section className="setting"><div><h2>Kata sandi</h2><p>Atur kata sandi untuk akun ini. Hanya bisa dalam 10 menit setelah masuk dengan Google.</p></div><form onSubmit={e=>credential(e,'google')}><label>Kata sandi baru<input name="password" type="password" autoComplete="new-password" required minLength={15} aria-describedby="password-hint"/></label><small id="password-hint">Minimal 15 karakter.</small><button disabled={authBusy}>Simpan</button></form></section>}
         {session.owner && session.passwordEnabled && <section className="setting"><div><h2>Undang anggota</h2><p>Buat tautan sekali pakai (30 menit) untuk mengatur atau mereset kata sandi anggota.</p></div><div><form onSubmit={e=>credential(e,'issue')}><label>Email anggota<input name="email" type="email" autoComplete="off" required maxLength={254}/></label><label>Tujuan<select name="purpose"><option value="invite">Undangan</option><option value="reset">Reset</option></select></label><button disabled={authBusy}>Buat tautan</button></form>{issuedLink && <div role="status" className="issued"><label>Tautan sekali pakai — kirim langsung ke anggota<input className="issuedlink" readOnly value={issuedLink} autoComplete="off" onFocus={e=>e.target.select()}/></label><div className="ownerrow"><button onClick={()=>navigator.clipboard.writeText(issuedLink).then(()=>setNotice('Tautan disalin.'),()=>setNotice('Tidak dapat menyalin. Salin manual.'))}>Salin</button><button onClick={()=>setIssuedLink('')}>Hapus</button></div></div>}</div></section>}
       </>:<>
         <div className="pagetitle"><h1>Inbox agen</h1><p>Email alias dan hasil peninjauan, langsung dari Google Sheets.</p></div>
